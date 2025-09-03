@@ -1622,6 +1622,13 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
+	/* -== SCULK ==- */
+	memset(&peer->tunnel_ip_v4, 0, sizeof(peer->tunnel_ip_v4));
+	memset(&peer->tunnel_ip_v6, 0, sizeof(peer->tunnel_ip_v6));
+	peer->tunnel_ip_v4_configured = false;
+	peer->tunnel_ip_v6_configured = false;
+	/* -== END SCULK ==- */
+
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);

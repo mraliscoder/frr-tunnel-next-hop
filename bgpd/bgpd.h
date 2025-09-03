@@ -1431,6 +1431,13 @@ struct peer {
 	 */
 	int lock;
 
+	/* -== SCULK ==- */
+	struct in_addr tunnel_ip_v4;
+	struct in6_addr tunnel_ip_v6;
+	bool tunnel_ip_v4_configured;
+	bool tunnel_ip_v6_configured;
+	/* -== END SCULK ==- */
+
 	/* BGP peer group.  */
 	struct peer_group *group;
 

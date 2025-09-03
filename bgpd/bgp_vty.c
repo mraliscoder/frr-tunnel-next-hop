@@ -14562,6 +14562,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		}
 	}
 
+	/* -== SCULK ==- */
+	if (p->tunnel_ip_v4_configured) {
+		if (use_json) {
+			json_object_string_add(json, "tunnelIpV4", inet_ntoa(p->tunnel_ip_v4));
+		} else {
+			vty_out(vty, " Tunnel IPv4: %s\n", inet_ntoa(p->tunnel_ip_v4));
+		}
+	}
+	if (p->tunnel_ip_v6_configured) {
+		char buf[INET6_ADDRSTRLEN];
+        inet_ntop(AF_INET6, &p->tunnel_ip_v6, buf, sizeof(buf));
+		if (use_json) {
+			json_object_string_add(json, "tunnelIpV6", buf);
+		} else {
+			vty_out(vty, " Tunnel IPv6: %s\n", buf);
+		}
+	}
+	/* -== END SCULK ==- */
+
 	if (use_json) {
 		/* Administrative shutdown. */
 		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
@@ -19146,6 +19165,17 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_PASSIVE))
 		vty_out(vty, " neighbor %s passive\n", addr);
 
+	/* -== SCULK ==- */
+	if (peer->tunnel_ip_v4_configured) {
+		vty_out(vty, " neighbor %s tunnel-ip-v4 %s\n", peer->host, inet_ntoa(peer->tunnel_ip_v4));
+	}
+	if (peer->tunnel_ip_v6_configured) {
+		char buf[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, &peer->tunnel_ip_v6, buf, sizeof(buf));
+		vty_out(vty, " neighbor %s tunnel-ip-v6 %s\n", peer->host, buf);
+	}
+	/* -== END SCULK ==- */
+
 	/* ebgp-multihop */
 	if (peer->sort != BGP_PEER_IBGP && peer->ttl != BGP_DEFAULT_TTL
 	    && !(peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED
@@ -20794,6 +20824,115 @@ static void bgp_vty_if_init(void)
 			&mpls_bgp_l3vpn_multi_domain_switching_cmd);
 }
 
+/* -== SCULK ==- */
+DEFUN(neighbor_tunnel_ip_v4,
+      neighbor_tunnel_ip_v4_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> tunnel-ip-v4 A.B.C.D",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure tunnel IPv4 address for nexthop override\n"
+      "IPv4 address\n")
+{
+    VTY_DECLVAR_CONTEXT(bgp, bgp);
+    int idx_peer = 1;
+    int idx_ip = 3;
+    struct peer *peer;
+    int ret;
+    struct in_addr addr;
+
+    peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+    if (!peer)
+        return CMD_WARNING_CONFIG_FAILED;
+
+    ret = inet_aton(argv[idx_ip]->arg, &addr);
+    if (!ret) {
+        vty_out(vty, "%% Invalid IPv4 address\n");
+        return CMD_WARNING_CONFIG_FAILED;
+    }
+
+    peer->tunnel_ip_v4 = addr;
+    peer->tunnel_ip_v4_configured = true;
+
+    return CMD_SUCCESS;
+}
+DEFUN(neighbor_tunnel_ip_v6,
+      neighbor_tunnel_ip_v6_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> tunnel-ip-v6 X:X::X:X",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure tunnel IPv6 address for nexthop override\n"
+      "IPv6 address\n")
+{
+    VTY_DECLVAR_CONTEXT(bgp, bgp);
+    int idx_peer = 1;
+    int idx_ip = 3;
+    struct peer *peer;
+    int ret;
+    struct in6_addr addr;
+
+    peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+    if (!peer)
+        return CMD_WARNING_CONFIG_FAILED;
+
+    ret = inet_pton(AF_INET6, argv[idx_ip]->arg, &addr);
+    if (ret != 1) {
+        vty_out(vty, "%% Invalid IPv6 address\n");
+        return CMD_WARNING_CONFIG_FAILED;
+    }
+
+    peer->tunnel_ip_v6 = addr;
+    peer->tunnel_ip_v6_configured = true;
+
+    return CMD_SUCCESS;
+}
+DEFUN(no_neighbor_tunnel_ip_v4,
+      no_neighbor_tunnel_ip_v4_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> tunnel-ip-v4 [A.B.C.D]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure tunnel IPv4 address for nexthop override\n"
+      "IPv4 address\n")
+{
+    VTY_DECLVAR_CONTEXT(bgp, bgp);
+    int idx_peer = 2;
+    struct peer *peer;
+
+    peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+    if (!peer)
+        return CMD_WARNING_CONFIG_FAILED;
+
+    memset(&peer->tunnel_ip_v4, 0, sizeof(peer->tunnel_ip_v4));
+    peer->tunnel_ip_v4_configured = false;
+
+    return CMD_SUCCESS;
+}
+
+DEFUN(no_neighbor_tunnel_ip_v6,
+      no_neighbor_tunnel_ip_v6_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> tunnel-ip-v6 [X:X::X:X]",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure tunnel IPv6 address for nexthop override\n"
+      "IPv6 address\n")
+{
+    VTY_DECLVAR_CONTEXT(bgp, bgp);
+    int idx_peer = 2;
+    struct peer *peer;
+
+    peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+    if (!peer)
+        return CMD_WARNING_CONFIG_FAILED;
+
+    memset(&peer->tunnel_ip_v6, 0, sizeof(peer->tunnel_ip_v6));
+    peer->tunnel_ip_v6_configured = false;
+
+    return CMD_SUCCESS;
+}
+
+/* -== END SCULK ==- */
+
 void bgp_vty_init(void)
 {
 	cmd_variable_handler_register(bgp_var_neighbor);
@@ -20861,6 +21000,13 @@ void bgp_vty_init(void)
 
 	/* bgp ipv6-auto-ra command */
 	install_element(BGP_NODE, &bgp_ipv6_auto_ra_cmd);
+
+	/* -== SCULK ==- */
+	install_element(BGP_NODE, &neighbor_tunnel_ip_v4_cmd);
+	install_element(BGP_NODE, &neighbor_tunnel_ip_v6_cmd);
+    install_element(BGP_NODE, &no_neighbor_tunnel_ip_v4_cmd);
+    install_element(BGP_NODE, &no_neighbor_tunnel_ip_v6_cmd);
+	/* -== END SCULK ==- */
 
 	/* global bgp update-delay command */
 	install_element(CONFIG_NODE, &bgp_global_update_delay_cmd);

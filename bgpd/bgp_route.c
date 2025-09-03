@@ -5046,6 +5046,24 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		    && pi->addpath_rx_id == addpath_id)
 			break;
 
+	/* -== SCULK ==- */
+	if (peer->tunnel_ip_v4_configured || peer->tunnel_ip_v6_configured) {
+			zlog_info("Changing must be here!!!!");
+		if (afi == AFI_IP && peer->tunnel_ip_v4_configured) {
+
+			/* Изменяем IPv4 nexthop на tunnel-ip-v4 */
+			new_attr.nexthop = peer->tunnel_ip_v4;
+			//new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		} else if (afi == AFI_IP6 && peer->tunnel_ip_v6_configured) {
+			/* Изменяем IPv6 nexthop на tunnel-ip-v6 */
+			if (new_attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+			    new_attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+				new_attr.mp_nexthop_global = peer->tunnel_ip_v6;
+			}
+		}
+	}
+	/* -== END SCULK ==- */
+
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
 		int32_t aspath_loop_count = 0;
@@ -5521,6 +5539,24 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Update to new attribute.  */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
+
+		/* -== SCULK ==- *//*
+		if (peer->tunnel_ip_v4_configured || peer->tunnel_ip_v6_configured) {
+			struct attr *updated_attr = bgp_attr_duplicate(pi->attr);
+			if (afi == AFI_IP && peer->tunnel_ip_v4_configured) {
+				updated_attr->nexthop = peer->tunnel_ip_v4;
+				updated_attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+			} else if (afi == AFI_IP6 && peer->tunnel_ip_v6_configured) {
+				if (updated_attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+				    updated_attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+					updated_attr->mp_nexthop_global = peer->tunnel_ip_v6;
+				}
+			}
+			bgp_attr_unintern(&pi->attr);
+			pi->attr = bgp_attr_intern(updated_attr);
+		}
+		*/
+		/* -== END SCULK ==- */
 
 		/* Update MPLS label */
 		if (!bgp_path_info_labels_same(pi, &bgp_labels.label[0],
