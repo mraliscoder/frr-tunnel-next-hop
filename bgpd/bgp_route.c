@@ -5052,13 +5052,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (afi == AFI_IP && peer->tunnel_ip_v4_configured) {
 
 			/* Изменяем IPv4 nexthop на tunnel-ip-v4 */
-			new_attr.nexthop = peer->tunnel_ip_v4;
+			attr->nexthop = peer->tunnel_ip_v4;
 			//new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		} else if (afi == AFI_IP6 && peer->tunnel_ip_v6_configured) {
 			/* Изменяем IPv6 nexthop на tunnel-ip-v6 */
-			if (new_attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
-			    new_attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				new_attr.mp_nexthop_global = peer->tunnel_ip_v6;
+			if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+			    attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+				attr->mp_nexthop_global = peer->tunnel_ip_v6;
 			}
 		}
 	}
